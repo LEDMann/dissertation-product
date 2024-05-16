@@ -1,0 +1,3 @@
+REST API with embedded Relational Database
+
+this REST API provides an interface for interacting with an embedded Relational Database through auto generated endpoints that trigger CRUD operations on the database

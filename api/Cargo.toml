@@ -1,0 +1,13 @@
+[package]
+name = "api"
+version = "0.1.0"
+edition = "2021"
+authors = ["Lewis Mann"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+obj_db = { path = "../obj_db" }
+rayon = "1.10.0"
+serde_json = "1.0.116"
+quote = "1.0.36"

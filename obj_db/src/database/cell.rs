@@ -103,11 +103,20 @@ impl Default for CellValue {
 
 impl Display for CellValue {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fmt.write_str("{{")?;
+        fmt.write_str("\"")?;
         fmt.write_str(&self.name())?;
-        fmt.write_str(", ")?;
-        fmt.write_str(&self.data_str())?;
-        fmt.write_str("}}")?;
+        fmt.write_str("\": ")?;
+        match self {
+            CellValue::String { .. } => fmt.write_str(&format!("\"{}\"", &self.data_str()))?,
+            CellValue::Bool   { .. } => fmt.write_str(&format!("{}", &self.data_str()))?,
+            CellValue::UInt   { .. } => fmt.write_str(&format!("{}", &self.data_str()))?,
+            CellValue::ULong  { .. } => fmt.write_str(&format!("{}", &self.data_str()))?,
+            CellValue::IInt   { .. } => fmt.write_str(&format!("{}", &self.data_str()))?,
+            CellValue::ILong  { .. } => fmt.write_str(&format!("{}", &self.data_str()))?,
+            CellValue::Float  { .. } => fmt.write_str(&format!("{}", &self.data_str()))?,
+            CellValue::Bytes  { .. } => fmt.write_str(&format!("\"{}\"", &self.data_str()))?,
+        }
+        fmt.write_str("")?;
         Ok(())
     }
 }

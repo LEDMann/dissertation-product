@@ -26,13 +26,13 @@ impl Record {
 }
 
 impl Display for Record {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>, table_cols: Vec<CellValue>) -> std::fmt::Result {
-        fmt.write_str("{{ ");
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fmt.write_str("{ ").unwrap();
         self.columns.iter().enumerate().for_each(|(i, a)| { 
-            fmt.write_str(&a.to_string()); 
-            if i != self.columns.len()-1 { fmt.write_str(", ") } else { todo!() }; 
+            fmt.write_str(&a.to_string()).unwrap(); 
+            if i != self.columns.len()-1 { fmt.write_str(", ").unwrap() } else { fmt.write_str("").unwrap() }; 
         });
-        fmt.write_str(" }}");
+        fmt.write_str(" }").unwrap();
         Ok(())
     }
 }

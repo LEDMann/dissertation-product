@@ -165,7 +165,7 @@ impl Table {
                 Err(_) => {} 
             }
         });
-        res
+        Ok(format!("{{{}}}", res.join(", ")))
     }
 
     /* 

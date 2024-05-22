@@ -333,7 +333,7 @@ impl TableQueryRead {
         match conditions.len() {
             1.. => {
                 match self.table.try_lock() {
-                    Ok(mut table) => self.result = Ok(table.query_search_columns(&conditions)),
+                    Ok(mut table) => self.result = table.query_search_columns(&conditions),
                     Err(e) => panic!("{}", ["shits fucked ".to_owned(), e.to_string()].concat())
                 }
             },
@@ -381,60 +381,85 @@ impl TableQueryDelete {
             Err(e) =>panic!("{}", ["shits fucked ".to_owned(), e.to_string()].concat())
         };
         let conditions = match body["conditions"].as_array() {
-            Some(conditionsarr) => Some(conditionsarr.iter().map(|condition| match condition.as_array() {
-                Some(conditionarr) => match conditionarr.len() {
-                    1 => match conditionsarr.first().unwrap().as_str() {
-                        Some(str) => match str {
-                            "*" => Some(conditional::Condition { target_column: "".to_owned(), conditional: conditional::Conditional::All, value: CellValue::Bool { name: "".to_owned(), data: None }, relational: None }),
-                            _ => None
+            Some(conditionsarr) => {
+                let conditions = conditionsarr.iter().map(|condition| match condition.as_array() {
+                    Some(conditionarr) => match conditionarr.len() {
+                        1 => {
+                            println!("{:?}", conditionarr);
+                            match conditionarr.first(){
+                                Some(arr) => {
+                                    println!("{:?}", arr);
+                                    match arr.as_str() {
+                                        Some(str) => match str {
+                                            "*" => {
+                                                let all = conditional::Condition { target_column: "".to_owned(), conditional: conditional::Conditional::All, value: CellValue::Bool { name: "".to_owned(), data: None }, relational: None };
+                                                Some(all)
+                                            },
+                                            _ => None
+                                        },
+                                        _ => None
+                                    }
+                                },
+                                None => None
+                            }
+                        },
+                        3|4 => {
+                            let conditions = match coldefs.iter().find(|celldef| celldef.0 == conditionsarr[0]) {
+                                Some(celldef) => match conditionsarr.len() {
+                                    3 => {
+                                        let condition = match &celldef.1 {
+                                            cell::CellValue::String { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::String { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => Some(val.to_owned()), None => None } }, relational: None }),
+                                            cell::CellValue::Bool   { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::Bool   { name: name.to_owned(), data: conditionsarr[3].as_bool() }, relational: None }),
+                                            cell::CellValue::UInt   { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::UInt   { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<u32>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: None }),
+                                            cell::CellValue::ULong  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::ULong  { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<u128>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: None }),
+                                            cell::CellValue::IInt   { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::IInt   { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<i32>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: None }),
+                                            cell::CellValue::ILong  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::ILong  { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<i128>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: None }),
+                                            cell::CellValue::Float  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::Float  { name: name.to_owned(), data: conditionsarr[3].as_f64() }, relational: None }),
+                                            cell::CellValue::Bytes  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::Bytes  { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => Some(<String as AsRef<[u8]>>::as_ref(&val.to_owned()).chunks(2).map(|pair| match pair[0] { b'A'..=b'F' => pair[0]-b'A'+10, _ => pair[0] } << 4 |  match pair[1] { b'A'..=b'F' => pair[1]-b'A'+10, _ => pair[1] }).map(|a| a as u8).collect::<Vec<u8>>()), None => None } }, relational: None }),
+                                            _ => None,
+                                        };
+                                        condition
+                                    },
+                                    4 => {
+                                        let condition = match &celldef.1 {
+                                            cell::CellValue::String { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::String { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => Some(val.to_owned()), None => None } }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
+                                            cell::CellValue::Bool   { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::Bool   { name: name.to_owned(), data: conditionsarr[3].as_bool() }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
+                                            cell::CellValue::UInt   { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::UInt   { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<u32>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
+                                            cell::CellValue::ULong  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::ULong  { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<u128>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
+                                            cell::CellValue::IInt   { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::IInt   { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<i32>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
+                                            cell::CellValue::ILong  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::ILong  { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<i128>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
+                                            cell::CellValue::Float  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::Float  { name: name.to_owned(), data: conditionsarr[3].as_f64() }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
+                                            cell::CellValue::Bytes  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::Bytes  { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => Some(<String as AsRef<[u8]>>::as_ref(&val.to_owned()).chunks(2).map(|pair| match pair[0] { b'A'..=b'F' => pair[0]-b'A'+10, _ => pair[0] } << 4 |  match pair[1] { b'A'..=b'F' => pair[1]-b'A'+10, _ => pair[1] }).map(|a| a as u8).collect::<Vec<u8>>()), None => None } }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
+                                            _ => None,
+                                        };
+                                        condition
+                                    },
+                                    _ => None
+                                },
+                                None => None
+                            };
+                            conditions
                         },
                         _ => None
                     },
-                    3|4 => match coldefs.iter().find(|celldef| celldef.0 == conditionsarr[0]) {
-                        Some(celldef) => match conditionsarr.len() {
-                            3 => match &celldef.1 {
-                                cell::CellValue::String { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::String { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => Some(val.to_owned()), None => None } }, relational: None }),
-                                cell::CellValue::Bool   { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::Bool   { name: name.to_owned(), data: conditionsarr[3].as_bool() }, relational: None }),
-                                cell::CellValue::UInt   { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::UInt   { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<u32>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: None }),
-                                cell::CellValue::ULong  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::ULong  { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<u128>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: None }),
-                                cell::CellValue::IInt   { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::IInt   { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<i32>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: None }),
-                                cell::CellValue::ILong  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::ILong  { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<i128>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: None }),
-                                cell::CellValue::Float  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::Float  { name: name.to_owned(), data: conditionsarr[3].as_f64() }, relational: None }),
-                                cell::CellValue::Bytes  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::Bytes  { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => Some(<String as AsRef<[u8]>>::as_ref(&val.to_owned()).chunks(2).map(|pair| match pair[0] { b'A'..=b'F' => pair[0]-b'A'+10, _ => pair[0] } << 4 |  match pair[1] { b'A'..=b'F' => pair[1]-b'A'+10, _ => pair[1] }).map(|a| a as u8).collect::<Vec<u8>>()), None => None } }, relational: None }),
-                                _ => None,
-                            },
-                            4 => match &celldef.1 {
-                                cell::CellValue::String { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::String { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => Some(val.to_owned()), None => None } }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
-                                cell::CellValue::Bool   { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::Bool   { name: name.to_owned(), data: conditionsarr[3].as_bool() }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
-                                cell::CellValue::UInt   { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::UInt   { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<u32>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
-                                cell::CellValue::ULong  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::ULong  { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<u128>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
-                                cell::CellValue::IInt   { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::IInt   { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<i32>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
-                                cell::CellValue::ILong  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::ILong  { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => match val.parse::<i128>() { Ok(val) => Some(val), _ => None } , None => None } }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
-                                cell::CellValue::Float  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::Float  { name: name.to_owned(), data: conditionsarr[3].as_f64() }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
-                                cell::CellValue::Bytes  { name, ..} => Some(conditional::Condition { target_column: conditionsarr[0].as_str().unwrap().to_owned(), conditional: Conditional::parse(conditionsarr[1].as_str().unwrap().to_owned()).unwrap(), value: cell::CellValue::Bytes  { name: name.to_owned(), data: match conditionsarr[3].as_str() { Some(val) => Some(<String as AsRef<[u8]>>::as_ref(&val.to_owned()).chunks(2).map(|pair| match pair[0] { b'A'..=b'F' => pair[0]-b'A'+10, _ => pair[0] } << 4 |  match pair[1] { b'A'..=b'F' => pair[1]-b'A'+10, _ => pair[1] }).map(|a| a as u8).collect::<Vec<u8>>()), None => None } }, relational: Some(Relation::parse(conditionsarr[4].as_str().unwrap().to_owned()).unwrap()) }),
-                                _ => None,
-                            },
-                            _ => None
+                    None => None
+                })
+                .map(|a| match a { Some(a) => a, None => Condition { target_column: "".to_owned(), conditional: Conditional::parse("!=".to_owned()).unwrap(), value: CellValue::Bool { name: "".to_owned(), data: None }, relational: None } })
+                .filter(|conditional| match conditional {
+                    Condition { target_column, conditional, ..} => match target_column.is_empty() {
+                        true => match conditional {
+                            Conditional::All => true,
+                            _ => false
                         },
-                        None => None
-                    },
-                    _ => None
-                },
-                None => None
-            })
-            .map(|a| match a { Some(a) => a, None => Condition { target_column: "".to_owned(), conditional: Conditional::parse("!=".to_owned()).unwrap(), value: CellValue::Bool { name: "".to_owned(), data: None }, relational: None } })
-            .filter(|conditional| match conditional {
-                Condition { target_column, conditional, ..} => match target_column.is_empty() {
-                    true => match conditional {
-                        Conditional::All => true,
-                        _ => false
-                    },
-                    false => true
-                }
-            })
-            .collect::<Vec<Condition>>()),
+                        false => true
+                    }
+                })
+                .collect::<Vec<Condition>>();
+                Some(conditions)
+            },
             None => None
         };
+        println!("conditions vec {:?}", conditions);
         match conditions {
             Some(conditions) => self.run(conditions),
             _ => self.result = Err("conditions could not be formatted".to_owned())
@@ -442,20 +467,30 @@ impl TableQueryDelete {
     }
 
     pub fn run(&mut self, conditions: Vec<conditional::Condition> ) {
+        println!("deteting records with conditions {:?}", conditions);
         match conditions.len() {
-            1.. => match self.table.try_lock() {
-                    Ok(mut table) => match conditions.iter().all(|condition| match table.column_definition.iter().find(|coldef| match coldef { 
-                        cell::Cell::CellDef { name, .. } => name == &condition.target_column, 
-                        _ => false 
-                    }) { Some(_) => true, None => { self.result = Err(["target column \"", &condition.target_column[..], "\" does not exist on target table"].concat()); false} }
-                ) {
-                    true => self.result = table.query_delete_records(&conditions),
-                    false => {}
-                },
-                Err(e) => panic!("{}", ["shits fucked ".to_owned(), e.to_string()].concat())
+            1.. => {
+                match self.table.try_lock() {
+                    Ok(mut table) => self.result = table.query_delete_records(&conditions),
+                    Err(e) => panic!("{}", ["shits fucked ".to_owned(), e.to_string()].concat())
+                }
             },
-            _ => self.result = Err("negative length of conditional list".to_owned())
+            _ => self.result = Err("length of conditional list < 1".to_owned())
         }
+        // match conditions.len() {
+        //     1.. => match self.table.try_lock() {
+        //             Ok(mut table) => match conditions.iter().all(|condition| match table.column_definition.iter().find(|coldef| match coldef { 
+        //                 cell::Cell::CellDef { name, .. } => name == &condition.target_column, 
+        //                 _ => false 
+        //             }) { Some(_) => true, None => { self.result = Err(["target column \"", &condition.target_column[..], "\" does not exist on target table"].concat()); false} }
+        //         ) {
+        //             true => self.result = table.query_delete_records(&conditions),
+        //             false => {}
+        //         },
+        //         Err(e) => panic!("{}", ["shits fucked ".to_owned(), e.to_string()].concat())
+        //     },
+        //     _ => self.result = Err("negative length of conditional list".to_owned())
+        // }
     }
 }
 

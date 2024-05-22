@@ -82,6 +82,7 @@ impl Part {
     }
 
     pub fn reload(&mut self) -> Result<String, String> {
+        println!("reloading {:?}\n\n", self.records);
         match fs::File::open(self.directory.clone()) {
             Ok(mut p) => {
                 let mut buf = vec![];
@@ -103,6 +104,7 @@ impl Part {
             },
             Err(_) => return Err("couldnt open file".to_owned())
         };
+        println!("reloading {:?}\n\n", self.records);
         Ok("reloaded successully".to_owned())
     }
 
@@ -141,9 +143,11 @@ impl Part {
     /* 
      * MARK: Query search in columns
      */
-    pub fn query_search_columns(&self, conditions: &Vec<conditional::Condition>) -> Result<Vec<String>, String> {
+    pub fn query_search_columns(&self, conditions: &Vec<conditional::Condition>) -> Result<String, String> {
+        println!("{:?}", self.records);
         let matching_records = self.records.iter().filter(|r| conditions.iter().all(|condition| r.query_check(condition)) ).map(|b| b.to_owned()).collect::<record::RecordCollection>().get_vec();
-        
+        println!("{:?}", matching_records);
+        Ok(matching_records.iter().map(|a| a.to_string()).collect::<Vec<String>>().join(", "))
     }
 
     /* 

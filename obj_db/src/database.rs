@@ -26,13 +26,7 @@ impl<'a> Database<'a> {
      */
     pub fn new(name: String, admin_db: Option<Arc<Mutex<Database<'a>>>>, role: String, dir_override: Option<String>) -> Arc<Mutex<Self>> {
         println!("building a new database called {}", name);
-        let mut new_db: Arc<Mutex<Database<'a>>> = Arc::new(Mutex::new(Database {
-            name: name.clone(),
-            indev: true,
-            directory: "".to_string(),
-            tables: vec![],
-            endpoints: vec![],
-        }));
+        let mut new_db: Arc<Mutex<Database<'a>>> = Arc::new(Mutex::new(Database { name: name.clone(), indev: true, directory: "".to_string(), tables: vec![], endpoints: vec![] }));
         match new_db.try_lock() {
             Ok(mut e) => {
                 match e.init_dir(dir_override, role.clone()) {
